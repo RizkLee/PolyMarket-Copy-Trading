@@ -2,9 +2,13 @@ package com.wrbug.polymarketbot.dto
 
 /**
  * 账户导入请求
+ *
+ * ⚠️ 安全说明：privateKey 为明文传输（仅受 HTTPS 保护）。
+ * 若将本应用部署于公网服务器，必须配置 HTTPS，否则私钥可能在传输过程中被截获。
+ * 私钥到达后端后将使用 AES-256 加密存储。
  */
 data class AccountImportRequest(
-    val privateKey: String,  // 私钥（前端加密后传输）
+    val privateKey: String,  // 私钥（明文传输，仅受 HTTPS 保护；后端存储时使用 AES-256 加密）
     val walletAddress: String,  // 钱包地址（前端从私钥推导，用于验证）
     val accountName: String? = null,
     val isEnabled: Boolean = true,  // 是否启用（用于订单推送等功能的开关）
@@ -13,11 +17,14 @@ data class AccountImportRequest(
 
 /**
  * 检查代理地址选项请求
+ *
+ * ⚠️ 安全说明：privateKey 和 mnemonic 为明文传输（仅受 HTTPS 保护）。
+ * 若将本应用部署于公网服务器，必须配置 HTTPS。
  */
 data class CheckProxyOptionsRequest(
     val walletAddress: String,  // EOA 地址（必需）
-    val privateKey: String? = null,  // 私钥（加密，私钥导入时提供）
-    val mnemonic: String? = null  // 助记词（加密，助记词导入时提供）
+    val privateKey: String? = null,  // 私钥（明文传输，仅受 HTTPS 保护）
+    val mnemonic: String? = null  // 助记词（明文传输，仅受 HTTPS 保护）
 )
 
 /**
@@ -53,11 +60,14 @@ data class AccountUpdateRequest(
 
 /**
  * 系统配置更新请求
+ *
+ * ⚠️ 安全说明：builderApiKey、builderSecret、builderPassphrase 为明文传输（仅受 HTTPS 保护）。
+ * 若将本应用部署于公网服务器，必须配置 HTTPS。
  */
 data class SystemConfigUpdateRequest(
-    val builderApiKey: String? = null,  // Builder API Key（前端加密后传输）
-    val builderSecret: String? = null,  // Builder Secret（前端加密后传输）
-    val builderPassphrase: String? = null,  // Builder Passphrase（前端加密后传输）
+    val builderApiKey: String? = null,  // Builder API Key（明文传输，仅受 HTTPS 保护）
+    val builderSecret: String? = null,  // Builder Secret（明文传输，仅受 HTTPS 保护）
+    val builderPassphrase: String? = null,  // Builder Passphrase（明文传输，仅受 HTTPS 保护）
     val autoRedeem: Boolean? = null  // 自动赎回（系统级别配置）
 )
 

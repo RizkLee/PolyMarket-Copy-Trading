@@ -153,6 +153,8 @@
 
 ## 第二部分：如何部署
 
+> ⚠️ **安全提示**：本应用需要导入钱包私钥。**如果部署在公网服务器上，必须配置 HTTPS**，否则私钥在传输过程中可能被截获。详细安全说明请参阅[安全说明](#-安全说明)章节。
+
 ### 🚀 快速部署
 
 #### 一体化部署（推荐）
@@ -445,6 +447,39 @@ cd frontend
 - [前端开发规范](.cursor/rules/frontend.mdc)
 
 ---
+
+## 🔒 安全说明
+
+### 代码安全审计
+
+本项目为**完全开源**项目，所有代码均可供公众审查。以下是关键安全机制的说明：
+
+**私钥处理方式：**
+- 私钥在后端使用 **AES-256 加密**后存储于本地数据库，从不以明文形式持久化
+- 私钥**仅在本地**用于签名操作（EIP-712 签名），签名后的结果发送至 Polymarket 官方 API
+- 私钥**不会发送**至任何第三方服务器
+
+**对外网络请求仅限以下官方服务：**
+- `clob.polymarket.com` — Polymarket 官方 CLOB API
+- `data-api.polymarket.com` / `gamma-api.polymarket.com` — Polymarket 官方数据 API
+- `relayer-v2.polymarket.com` — Polymarket 官方 Builder Relayer
+- `api.github.com` — GitHub API（仅用于获取公告和版本更新）
+- `api.binance.com` / `stream.binance.com` — Binance API（仅用于加密货币价格数据）
+- `api.telegram.org` — Telegram API（仅用于交易通知，需用户主动配置）
+- Polygon RPC 节点（用户自行配置）
+
+### ⚠️ HTTPS 部署强制要求
+
+> **重要安全警告**：导入私钥时，私钥从浏览器传输到后端服务器的过程是**明文传输**（受 HTTPS 保护）。
+>
+> **如果您通过公网 IP 或域名访问本应用，必须配置 HTTPS，否则私钥将面临网络中间人攻击风险！**
+
+**安全部署建议：**
+- ✅ **本地部署**（仅在 `localhost` 访问）：可使用 HTTP，私钥在本机内部传输
+- ✅ **公网部署**：必须配置 HTTPS/SSL 证书（可使用 Let's Encrypt 免费证书）
+- ❌ **切勿**通过公网 HTTP（明文）访问含有私钥的部署实例
+
+HTTPS 配置方法请参考：[部署文档 - Nginx 反向代理](docs/zh/DEPLOYMENT.md#使用外部-nginx-反向代理生产环境推荐)
 
 ## ⚠️ 免责声明
 

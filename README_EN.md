@@ -152,6 +152,8 @@ A powerful copy trading system for Polymarket prediction markets, supporting aut
 
 ## Part 2: How to Deploy
 
+> ⚠️ **Security Note**: This application requires importing wallet private keys. **If deploying on a public server, you MUST configure HTTPS**, otherwise private keys may be intercepted during transmission. See the [Security](#-security) section for details.
+
 ### 🚀 Quick Deployment
 
 #### All-in-One Deployment (Recommended)
@@ -443,6 +445,39 @@ For detailed development standards, please refer to:
 - [Frontend Development Standards](.cursor/rules/frontend.mdc)
 
 ---
+
+## 🔒 Security
+
+### Code Security Audit
+
+This project is **fully open source** and all code is available for public review. Below is an explanation of the key security mechanisms:
+
+**Private Key Handling:**
+- Private keys are stored in the local database encrypted with **AES-256** and are never persisted in plaintext
+- Private keys are **only used locally** for signing operations (EIP-712 signature); only the resulting signatures are sent to Polymarket's official API
+- Private keys are **never sent** to any third-party servers
+
+**All outbound network requests are limited to the following official services:**
+- `clob.polymarket.com` — Polymarket official CLOB API
+- `data-api.polymarket.com` / `gamma-api.polymarket.com` — Polymarket official Data API
+- `relayer-v2.polymarket.com` — Polymarket official Builder Relayer
+- `api.github.com` — GitHub API (only for announcements and version updates)
+- `api.binance.com` / `stream.binance.com` — Binance API (only for crypto price data)
+- `api.telegram.org` — Telegram API (only for trade notifications, requires user configuration)
+- Polygon RPC nodes (user-configured)
+
+### ⚠️ HTTPS Deployment Requirement
+
+> **Important Security Warning**: When importing a private key, the key is transmitted from the browser to the backend server in **plaintext** (protected by HTTPS transport).
+>
+> **If you access this application via a public IP or domain name, you MUST configure HTTPS; otherwise your private key is at risk from network man-in-the-middle attacks!**
+
+**Secure Deployment Guidelines:**
+- ✅ **Local deployment** (accessed only via `localhost`): HTTP is acceptable; the private key stays within your own machine
+- ✅ **Public deployment**: HTTPS/SSL certificate must be configured (you can use a free Let's Encrypt certificate)
+- ❌ **Never** access a deployment containing private keys over public HTTP (unencrypted)
+
+For HTTPS configuration, see: [Deployment Guide - Nginx Reverse Proxy](docs/en/DEPLOYMENT.md)
 
 ## ⚠️ Disclaimer
 
