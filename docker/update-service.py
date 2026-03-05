@@ -12,6 +12,7 @@ import subprocess
 import time
 import shutil
 import tarfile
+import hashlib
 import requests
 from pathlib import Path
 from threading import Thread
@@ -51,6 +52,9 @@ BACKUPS_DIR.mkdir(parents=True, exist_ok=True)
 GITHUB_REPO = os.getenv('GITHUB_REPO', 'WrBug/PolyHermes')
 ALLOW_PRERELEASE = os.getenv('ALLOW_PRERELEASE', 'false').lower() == 'true'
 BACKEND_URL = 'http://localhost:8000'
+
+# 读取校验和时每次读取的块大小（字节）
+CHECKSUM_BLOCK_SIZE = 65536
 
 # 更新状态
 update_status = {
@@ -183,6 +187,68 @@ def download_file(url, dest_path):
     return dest_path
 
 
+def verify_checksum(file_path, assets):
+    """
+    从 Release 的 checksums.txt 资产中验证下载文件的 SHA256 校验和。
+    如果 checksums.txt 不存在或校验失败，将抛出 Exception。
+    """
+    # 在 assets 中找到 checksums.txt
+    checksum_asset = None
+    for asset in assets:
+        if asset['name'] == 'checksums.txt':
+            checksum_asset = asset
+            break
+
+    if checksum_asset is None:
+        raise Exception(
+            "安全验证失败：本次 Release 未包含 checksums.txt，无法验证更新包完整性，已中止更新。"
+        )
+
+    # 下载 checksums.txt
+    logger.info(f"正在下载 checksums.txt 以验证更新包完整性...")
+    try:
+        resp = requests.get(checksum_asset['browser_download_url'], timeout=30)
+        resp.raise_for_status()
+        checksum_content = resp.text
+    except Exception as e:
+        raise Exception(
+            f"安全验证失败：无法下载 checksums.txt（{e}），已中止更新。"
+        )
+
+    # 从 checksums.txt 中解析期望的 SHA256
+    # 标准格式：<hash>  <filename>（sha256sum 生成的格式，两个空格分隔）
+    # 使用 split(None, 1) 将行分为最多两部分，正确处理文件名中含有空格的情况
+    file_name = Path(file_path).name
+    expected_hash = None
+    for line in checksum_content.splitlines():
+        parts = line.split(None, 1)
+        if len(parts) == 2 and parts[1].strip() == file_name:
+            expected_hash = parts[0].strip().lower()
+            break
+
+    if expected_hash is None:
+        raise Exception(
+            f"安全验证失败：checksums.txt 中未找到 {file_name} 的校验和，已中止更新。"
+        )
+
+    # 计算实际的 SHA256
+    sha256 = hashlib.sha256()
+    with open(file_path, 'rb') as f:
+        for block in iter(lambda: f.read(CHECKSUM_BLOCK_SIZE), b''):
+            sha256.update(block)
+    actual_hash = sha256.hexdigest().lower()
+
+    if actual_hash != expected_hash:
+        raise Exception(
+            f"安全验证失败：更新包 SHA256 校验和不匹配！\n"
+            f"  期望值: {expected_hash}\n"
+            f"  实际值: {actual_hash}\n"
+            f"更新包可能已被篡改，已中止更新。"
+        )
+
+    logger.info(f"更新包 SHA256 校验和验证通过: {actual_hash}")
+
+
 def backup_current_version():
     """备份当前版本"""
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -276,6 +342,12 @@ def perform_update(target_version):
         download_file(download_url, download_path)
         
         update_status['progress'] = 40
+        
+        # 2.5. 验证更新包 SHA256 校验和（防止下载内容被篡改）
+        update_status['message'] = f'验证更新包完整性 {tag}...'
+        verify_checksum(download_path, assets)
+        
+        update_status['progress'] = 45
         
         # 3. 备份当前版本
         update_status['message'] = '备份当前版本...'

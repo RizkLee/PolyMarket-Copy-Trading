@@ -169,6 +169,29 @@
 
 #### ⚡ 一键安装（最快，推荐新用户）
 
+> ⚠️ **供应链安全说明（重要，使用前请阅读）**
+>
+> 以下一键安装命令执行时，会进行以下操作：
+> 1. 从 `https://raw.githubusercontent.com/WrBug/PolyHermes/main/deploy-interactive.sh` 下载部署脚本
+> 2. 该部署脚本再从同一个 GitHub 仓库下载 `docker-compose.prod.yml`
+> 3. 最后从 Docker Hub 拉取 `wrbug/polyhermes:latest` 镜像并运行
+>
+> **因此存在以下风险，你应当了解：**
+> - 🔗 **脚本来自原始仓库**（`WrBug/PolyHermes`），而非本 Fork 仓库。若原始仓库被攻击者接管或脚本被修改，你下载到的脚本可能与 GitHub 上可见的源代码不同。
+> - 🐳 **Docker 镜像**（`wrbug/polyhermes:latest`）由 GitHub Actions 从源代码自动构建并推送到 Docker Hub（工作流见 `.github/workflows/docker-build.yml`），但 Docker Hub 账号的控制权在镜像发布者手中。
+> - 🔄 **自动更新机制**：容器内的 `update-service.py` 会从 `WrBug/PolyHermes` 的 GitHub Releases 下载更新包并执行热更新。**从本版本起，更新包会验证 SHA256 校验和**（与 Release 附带的 `checksums.txt` 比对），防止下载内容被篡改。
+>
+> **如何降低风险：**
+> - 🔍 **审查脚本后再执行**：建议先把脚本下载下来，看完确认没问题后再执行：
+>   ```bash
+>   # 先下载查看
+>   curl -fsSL https://raw.githubusercontent.com/WrBug/PolyHermes/main/deploy-interactive.sh -o deploy.sh
+>   cat deploy.sh   # 仔细阅读脚本内容
+>   chmod +x deploy.sh && ./deploy.sh   # 确认无误后再执行
+>   ```
+> - 🔒 **部署后防火墙隔离**：确保容器所在服务器只对可信 IP 开放端口，不要将其公开暴露在互联网上（除非配置了 HTTPS）
+> - 📌 **锁定版本**：生产环境建议使用固定版本标签（如 `wrbug/polyhermes:v1.0.0`）而非 `latest`，避免自动获取未经审查的新版本
+
 **使用 curl（推荐）：**
 ```bash
 mkdir -p ~/polyhermes && cd ~/polyhermes && curl -fsSL https://raw.githubusercontent.com/WrBug/PolyHermes/main/deploy-interactive.sh -o deploy.sh && chmod +x deploy.sh && ./deploy.sh
@@ -454,6 +477,11 @@ cd frontend
 
 本项目为**完全开源**项目，所有代码均可供公众审查。以下是关键安全机制的说明：
 
+**仓库文件清点（无隐藏可执行文件）：**
+
+经过完整扫描，本仓库中的**所有文件**均为可读的源代码、配置文件或图片资源，不存在任何代码混淆、预编译二进制文件或隐藏可执行文件。唯一的非文本文件是：
+- `backend/gradle/wrapper/gradle-wrapper.jar` — 这是 Gradle 官方提供的标准构建工具启动器（JAR 文件），其内容是 `org.gradle.wrapper.*` 等 Gradle 标准类，任何使用 Gradle 的 Java/Kotlin 项目都会包含此文件。
+
 **私钥处理方式：**
 - 私钥在后端使用 **AES-256 加密**后存储于本地数据库，从不以明文形式持久化
 - 私钥**仅在本地**用于签名操作（EIP-712 签名），签名后的结果发送至 Polymarket 官方 API
@@ -467,6 +495,22 @@ cd frontend
 - `api.binance.com` / `stream.binance.com` — Binance API（仅用于加密货币价格数据）
 - `api.telegram.org` — Telegram API（仅用于交易通知，需用户主动配置）
 - Polygon RPC 节点（用户自行配置）
+
+### 🔗 一键安装供应链说明
+
+使用一键安装命令时，涉及以下外部资源，每一步都有潜在的供应链风险：
+
+| 步骤 | 资源来源 | 风险等级 | 说明 |
+|------|---------|---------|------|
+| 1 | `raw.githubusercontent.com/WrBug/PolyHermes/main/deploy-interactive.sh` | ⚠️ 中等 | GitHub 原始仓库文件，可在浏览器直接查看源码审查：[点击查看](https://github.com/WrBug/PolyHermes/blob/main/deploy-interactive.sh) |
+| 2 | `raw.githubusercontent.com/WrBug/PolyHermes/main/docker-compose.prod.yml` | ⚠️ 中等 | 由步骤1的脚本下载，可在浏览器直接查看：[点击查看](https://github.com/WrBug/PolyHermes/blob/main/docker-compose.prod.yml) |
+| 3 | `wrbug/polyhermes:latest`（Docker Hub） | ⚠️ 中等 | 由 `.github/workflows/docker-build.yml` 从源代码自动构建，构建日志公开可查。但 Docker Hub 账号控制权在发布者手中 |
+| 4 | GitHub Releases 更新包（热更新） | ✅ 低（已加固） | 从本版本起，更新包下载后会验证 SHA256 校验和（对比 Release 中的 `checksums.txt`），拒绝安装被篡改的更新 |
+
+**建议做法（从高安全到快速部署）：**
+1. 🔒 **最安全**：Clone 此仓库，从源代码本地构建镜像（`./deploy.sh`），完全跳过 Docker Hub 和外部脚本
+2. 🔍 **较安全**：先审查脚本再执行（见一键安装说明中的建议）
+3. ⚡ **快速部署**：直接使用一键命令（适合信任原作者且追求便捷的用户）
 
 ### ⚠️ HTTPS 部署强制要求
 
