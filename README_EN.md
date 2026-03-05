@@ -152,6 +152,8 @@ A powerful copy trading system for Polymarket prediction markets, supporting aut
 
 ## Part 2: How to Deploy
 
+> ⚠️ **Security Note**: This application requires importing wallet private keys. **If deploying on a public server, you MUST configure HTTPS**, otherwise private keys may be intercepted during transmission. See the [Security](#-security) section for details.
+
 ### 🚀 Quick Deployment
 
 #### All-in-One Deployment (Recommended)
@@ -165,6 +167,29 @@ Deploy both frontend and backend together in a single Docker container, using Ng
 **Deployment Steps**:
 
 #### ⚡ One-Liner Installation (Fastest, Recommended for New Users)
+
+> ⚠️ **Supply Chain Security Notice (Important — please read before proceeding)**
+>
+> The one-liner command below performs the following actions:
+> 1. Downloads the deploy script from `https://raw.githubusercontent.com/WrBug/PolyHermes/main/deploy-interactive.sh`
+> 2. That script then downloads `docker-compose.prod.yml` from the same GitHub repository
+> 3. Finally, it pulls `wrbug/polyhermes:latest` from Docker Hub and starts the container
+>
+> **You should be aware of the following risks:**
+> - 🔗 **Script comes from the original repo** (`WrBug/PolyHermes`), not this fork. If the original repo is compromised or the script is modified, the script you download may differ from what's visible on GitHub.
+> - 🐳 **The Docker image** (`wrbug/polyhermes:latest`) is built automatically from source code by GitHub Actions (see `.github/workflows/docker-build.yml`), but the Docker Hub account is controlled by the image publisher.
+> - 🔄 **Auto-update mechanism**: The `update-service.py` inside the container downloads updates from GitHub Releases. **As of this version, downloaded update packages are verified against a SHA256 checksum** (from `checksums.txt` attached to the Release), preventing tampered updates from being installed.
+>
+> **How to reduce risks:**
+> - 🔍 **Review the script before executing**: Download it first, read it, then run it:
+>   ```bash
+>   # Download and inspect first
+>   curl -fsSL https://raw.githubusercontent.com/WrBug/PolyHermes/main/deploy-interactive.sh -o deploy.sh
+>   cat deploy.sh   # Read the script carefully
+>   chmod +x deploy.sh && ./deploy.sh   # Execute only after confirming it looks safe
+>   ```
+> - 🔒 **Firewall isolation after deployment**: Ensure the server only exposes ports to trusted IPs; do not expose it publicly on the internet (unless HTTPS is configured)
+> - 📌 **Pin the version**: In production, use a fixed version tag (e.g., `wrbug/polyhermes:v1.0.0`) instead of `latest` to avoid automatically pulling unreviewed new versions
 
 **Using curl (Recommended):**
 ```bash
@@ -443,6 +468,60 @@ For detailed development standards, please refer to:
 - [Frontend Development Standards](.cursor/rules/frontend.mdc)
 
 ---
+
+## 🔒 Security
+
+### Code Security Audit
+
+This project is **fully open source** and all code is available for public review. Below is an explanation of the key security mechanisms:
+
+**Repository File Inventory (No hidden executables):**
+
+A complete scan of this repository confirms that **all files** are readable source code, configuration files, or image assets. There is no obfuscated code, pre-compiled binaries, or hidden executables. The only non-text file is:
+- `backend/gradle/wrapper/gradle-wrapper.jar` — This is the standard Gradle build-tool launcher provided by Gradle itself (contains only `org.gradle.wrapper.*` classes). Every Java/Kotlin project using Gradle includes this file.
+
+**Private Key Handling:**
+- Private keys are stored in the local database encrypted with **AES-256** and are never persisted in plaintext
+- Private keys are **only used locally** for signing operations (EIP-712 signature); only the resulting signatures are sent to Polymarket's official API
+- Private keys are **never sent** to any third-party servers
+
+**All outbound network requests are limited to the following official services:**
+- `clob.polymarket.com` — Polymarket official CLOB API
+- `data-api.polymarket.com` / `gamma-api.polymarket.com` — Polymarket official Data API
+- `relayer-v2.polymarket.com` — Polymarket official Builder Relayer
+- `api.github.com` — GitHub API (only for announcements and version updates)
+- `api.binance.com` / `stream.binance.com` — Binance API (only for crypto price data)
+- `api.telegram.org` — Telegram API (only for trade notifications, requires user configuration)
+- Polygon RPC nodes (user-configured)
+
+### 🔗 One-Click Install Supply Chain
+
+When using the one-liner install, the following external resources are involved, each with potential supply chain risk:
+
+| Step | Resource Source | Risk Level | Notes |
+|------|----------------|------------|-------|
+| 1 | `raw.githubusercontent.com/WrBug/PolyHermes/main/deploy-interactive.sh` | ⚠️ Medium | GitHub raw file; review source directly: [View](https://github.com/WrBug/PolyHermes/blob/main/deploy-interactive.sh) |
+| 2 | `raw.githubusercontent.com/WrBug/PolyHermes/main/docker-compose.prod.yml` | ⚠️ Medium | Downloaded by step 1's script; review source: [View](https://github.com/WrBug/PolyHermes/blob/main/docker-compose.prod.yml) |
+| 3 | `wrbug/polyhermes:latest` (Docker Hub) | ⚠️ Medium | Built automatically from source by `.github/workflows/docker-build.yml`, but the Docker Hub account is controlled by the publisher |
+| 4 | GitHub Releases update packages (hot-update) | ✅ Low (hardened) | As of this version, downloaded update packages are verified against SHA256 checksums (from `checksums.txt` in each Release), rejecting tampered packages |
+
+**Deployment options ranked by security level:**
+1. 🔒 **Most secure**: Clone this repo and build the Docker image locally from source (`./deploy.sh`), bypassing Docker Hub and external scripts entirely
+2. 🔍 **More secure**: Download and review the script before executing (see One-Liner Installation section)
+3. ⚡ **Quick deploy**: Use the one-liner directly (suitable for users who trust the author and prioritize convenience)
+
+### ⚠️ HTTPS Deployment Requirement
+
+> **Important Security Warning**: When importing a private key, the key is transmitted from the browser to the backend server in **plaintext** (protected by HTTPS transport).
+>
+> **If you access this application via a public IP or domain name, you MUST configure HTTPS; otherwise your private key is at risk from network man-in-the-middle attacks!**
+
+**Secure Deployment Guidelines:**
+- ✅ **Local deployment** (accessed only via `localhost`): HTTP is acceptable; the private key stays within your own machine
+- ✅ **Public deployment**: HTTPS/SSL certificate must be configured (you can use a free Let's Encrypt certificate)
+- ❌ **Never** access a deployment containing private keys over public HTTP (unencrypted)
+
+For HTTPS configuration, see: [Deployment Guide - Nginx Reverse Proxy](docs/en/DEPLOYMENT.md)
 
 ## ⚠️ Disclaimer
 
